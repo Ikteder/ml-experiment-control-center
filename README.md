@@ -158,7 +158,3 @@ npm test
 npm run build
 ```
 
-## Resume-ready framing
-
-**ML Experiment Control Center**  
-Built a full-stack internal ML platform with FastAPI, React, SQLite, live experiment tracking, structured logs, artifact browsing, run comparison, exportable reports, and reproducibility-focused metadata capture.
