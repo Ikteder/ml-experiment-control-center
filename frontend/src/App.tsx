@@ -1,10 +1,9 @@
-import { startTransition, useDeferredValue, useEffect, useMemo, useState } from 'react'
+import { lazy, startTransition, Suspense, useEffect, useMemo, useState } from 'react'
 
 import { getMetrics, getRun, launchRun, listPresets, listRuns } from './api/client'
 import { ArtifactBrowser } from './components/ArtifactBrowser'
 import { CompareStrip } from './components/CompareStrip'
 import { LogStream } from './components/LogStream'
-import { MetricChart } from './components/MetricChart'
 import { RunLauncher } from './components/RunLauncher'
 import { RunsTable } from './components/RunsTable'
 import { StatCards } from './components/StatCards'
@@ -19,6 +18,7 @@ import type {
 } from './types'
 
 const API_ORIGIN = import.meta.env.VITE_API_ORIGIN ?? 'http://127.0.0.1:8000'
+const MetricChart = lazy(() => import('./components/MetricChart').then((module) => ({ default: module.MetricChart })))
 
 function App() {
   const [presets, setPresets] = useState<PresetSummary[]>([])
@@ -33,53 +33,70 @@ function App() {
   const [dateFilter, setDateFilter] = useState('')
   const [errorMessage, setErrorMessage] = useState('')
 
-  const deferredSearch = useDeferredValue(search)
   const liveLogs = useEventSource(selectedRunId)
 
-  async function refreshRuns() {
+  const runQuery = useMemo(() => {
     const params = new URLSearchParams({ limit: '20', offset: '0' })
-    if (deferredSearch) params.set('search', deferredSearch)
+    if (search) params.set('search', search)
     if (statusFilter) params.set('status', statusFilter)
     if (presetFilter) params.set('preset_key', presetFilter)
-    const response = await listRuns(params)
-    setRuns(response.items)
-    if (!selectedRunId && response.items.length > 0) {
-      setSelectedRunId(response.items[0].run_id)
-    }
-  }
+    return params.toString()
+  }, [search, statusFilter, presetFilter])
 
   useEffect(() => {
-    Promise.all([listPresets(), refreshRuns()])
-      .then(([presetItems]) => {
-        setPresets(presetItems)
+    let active = true
+    listPresets()
+      .then((presetItems) => {
+        if (active) setPresets(presetItems)
       })
       .catch((error: Error) => {
-        setErrorMessage(error.message)
+        if (active) setErrorMessage(error.message)
       })
+    return () => {
+      active = false
+    }
   }, [])
 
   useEffect(() => {
-    refreshRuns().catch((error: Error) => setErrorMessage(error.message))
-  }, [deferredSearch, statusFilter, presetFilter])
+    let active = true
+    const load = () => {
+      listRuns(new URLSearchParams(runQuery))
+        .then((response) => {
+          if (!active) return
+          setRuns(response.items)
+          setSelectedRunId((current) => current ?? response.items[0]?.run_id ?? null)
+        })
+        .catch((error: Error) => {
+          if (active) setErrorMessage(error.message)
+        })
+    }
+    const firstLoad = window.setTimeout(load, 0)
+    const timer = window.setInterval(load, 2500)
+    return () => {
+      active = false
+      window.clearTimeout(firstLoad)
+      window.clearInterval(timer)
+    }
+  }, [runQuery])
 
-  useEffect(() => {
-    const timer = window.setInterval(() => {
-      refreshRuns().catch(() => undefined)
-    }, 2500)
-    return () => window.clearInterval(timer)
-  }, [deferredSearch, statusFilter, presetFilter])
+  const selectedRunStatus = runs.find((run) => run.run_id === selectedRunId)?.status
 
   useEffect(() => {
     if (!selectedRunId) return
+    let active = true
     Promise.all([getRun(selectedRunId), getMetrics(selectedRunId)])
       .then(([detail, metrics]) => {
+        if (!active) return
         setSelectedRunDetail(detail)
         setMetricPoints(metrics)
       })
       .catch((error: Error) => {
-        setErrorMessage(error.message)
+        if (active) setErrorMessage(error.message)
       })
-  }, [selectedRunId, runs])
+    return () => {
+      active = false
+    }
+  }, [selectedRunId, selectedRunStatus])
 
   const displayedRuns = useMemo(() => {
     if (!dateFilter) return runs
@@ -89,11 +106,18 @@ function App() {
 
   const compareRuns = displayedRuns.filter((run) => compareIds.includes(run.run_id)).slice(0, 2)
   const previewArtifact = selectedRunDetail?.artifacts.find((artifact) => artifact.mime_type.startsWith('image/'))
+  const heroMetricKeys = selectedRunDetail?.run.task_type === 'regression'
+    ? ['rmse', 'mae', 'seasonal_naive_rmse', 'rmse_improvement_pct']
+    : ['f1', 'precision', 'recall', 'auroc']
+  const heroMetrics = heroMetricKeys
+    .filter((key) => selectedRunDetail?.run.scorecard[key] !== undefined)
+    .map((key) => [key, selectedRunDetail?.run.scorecard[key]] as const)
 
   async function handleLaunch(payload: LaunchRunRequest) {
     setErrorMessage('')
     const run = await launchRun(payload)
-    await refreshRuns()
+    const response = await listRuns(new URLSearchParams(runQuery))
+    setRuns(response.items)
     setSelectedRunId(run.run_id)
   }
 
@@ -111,7 +135,7 @@ function App() {
       <header className="hero-shell">
         <div>
           <p className="eyebrow">ML Experiment Control Center</p>
-          <h1>Launch, track, compare, and export experiments from one industrial-grade dashboard.</h1>
+          <h1>Launch, track, compare, and export experiments from one evidence-first dashboard.</h1>
           <p className="hero-copy">
             Lightweight internal ML platform built with FastAPI, React, SQLite, live logs, reproducible run configs,
             artifact storage, and side-by-side experiment review.
@@ -122,6 +146,16 @@ function App() {
             {selectedRunDetail?.run.status ?? 'waiting'}
           </span>
           <h3>{selectedRunDetail?.run.display_name ?? 'No run selected'}</h3>
+          {heroMetrics.length ? (
+            <div className="hero-metrics">
+              {heroMetrics.map(([key, value]) => (
+                <div key={key}>
+                  <span>{key.replaceAll('_', ' ')}</span>
+                  <strong>{value?.toFixed(key.includes('pct') ? 1 : 3)}</strong>
+                </div>
+              ))}
+            </div>
+          ) : null}
           <p>{selectedRunDetail?.run.latest_message ?? 'Launch a workload to start collecting logs and artifacts.'}</p>
         </div>
       </header>
@@ -181,7 +215,9 @@ function App() {
 
         <CompareStrip runs={compareRuns} />
 
-        <MetricChart points={metricPoints} taskType={selectedRunDetail?.run.task_type ?? 'classification'} />
+        <Suspense fallback={<section className="panel chart-panel">Loading metric history...</section>}>
+          <MetricChart points={metricPoints} taskType={selectedRunDetail?.run.task_type ?? 'classification'} />
+        </Suspense>
 
         <section className="panel detail-panel">
           <div className="section-heading">

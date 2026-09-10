@@ -11,12 +11,13 @@ PRESETS = {
         "task_type": "classification",
         "model_name": "Gradient Boosting Classifier",
         "config": {
-            "config_version": "1.0.0",
+            "config_version": "1.1.0",
             "samples": 2200,
             "features": 18,
             "informative": 8,
             "class_sep": 1.25,
             "weights": [0.68, 0.32],
+            "flip_y": 0.01,
             "epochs": 16,
             "learning_rate": 0.08,
             "max_depth": 3,
@@ -31,7 +32,7 @@ PRESETS = {
         "task_type": "classification",
         "model_name": "Gradient Boosting Classifier",
         "config": {
-            "config_version": "1.0.0",
+            "config_version": "1.1.0",
             "samples": 2600,
             "features": 24,
             "informative": 10,
@@ -47,15 +48,20 @@ PRESETS = {
     },
     "demand-forecasting": {
         "display_name": "Demand Forecasting Regressor",
-        "description": "Forecasting-style regression workload with seasonality, promotions, and pricing effects.",
+        "description": "Chronological daily-demand forecast with lagged demand, calendar signals, promotions, and pricing effects.",
         "dataset_name": "Synthetic Retail Demand",
         "task_type": "regression",
         "model_name": "Gradient Boosting Regressor",
         "config": {
-            "config_version": "1.0.0",
+            "config_version": "1.1.0",
             "samples": 1800,
-            "features": 12,
-            "noise": 1.8,
+            "start_date": "2022-01-01",
+            "noise": 9.0,
+            "promotion_rate": 0.14,
+            "weekly_amplitude": 24.0,
+            "trend_per_day": 0.025,
+            "promotion_lift": 34.0,
+            "price_sensitivity": 5.5,
             "epochs": 20,
             "learning_rate": 0.06,
             "max_depth": 3,
@@ -76,4 +82,3 @@ def get_preset(key: str) -> dict:
         available = ", ".join(sorted(presets))
         raise KeyError(f"Unknown preset '{key}'. Available presets: {available}")
     return presets[key]
-

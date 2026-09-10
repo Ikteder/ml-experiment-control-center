@@ -153,6 +153,7 @@ def list_artifacts(
 def download_artifact(
     run_id: str,
     artifact_name: str,
+    request: Request,
     db: Session = Depends(get_db),
     runner: RunOrchestrator = Depends(get_runner),
 ) -> FileResponse:
@@ -160,7 +161,7 @@ def download_artifact(
     artifact = next((item for item in artifacts if item.name == artifact_name), None)
     if artifact is None:
         raise HTTPException(status_code=404, detail=f"Artifact '{artifact_name}' was not found.")
-    absolute_path = settings.storage_root / artifact.relative_path
+    absolute_path = request.app.state.storage_root / artifact.relative_path
     if not absolute_path.exists():
         raise HTTPException(status_code=404, detail="Artifact file is missing from disk.")
     return FileResponse(path=absolute_path, media_type=artifact.mime_type, filename=artifact.name)
@@ -196,6 +197,7 @@ async def stream_logs(
 @router.get("/runs/{run_id}/report", response_class=HTMLResponse)
 def export_report(
     run_id: str,
+    request: Request,
     db: Session = Depends(get_db),
     runner: RunOrchestrator = Depends(get_runner),
 ) -> HTMLResponse:
@@ -203,5 +205,5 @@ def export_report(
     report_artifact = next((item for item in artifacts if item.name == "report.html"), None)
     if report_artifact is None:
         raise HTTPException(status_code=404, detail="Report artifact not found.")
-    report_path = settings.storage_root / report_artifact.relative_path
+    report_path = request.app.state.storage_root / report_artifact.relative_path
     return HTMLResponse(report_path.read_text(encoding="utf-8"))

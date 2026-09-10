@@ -12,3 +12,5 @@ storage/runs/*
 backend/app.db
 app.db
 backend/.coverage
+.test-tmp/
+.demo-runtime/

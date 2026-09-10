@@ -13,32 +13,51 @@ export function RunLauncher({ presets, onLaunch }: RunLauncherProps) {
   const [epochs, setEpochs] = useState(14)
   const [seed, setSeed] = useState(42)
   const [configOverride, setConfigOverride] = useState<Record<string, unknown> | null>(null)
+  const [feedback, setFeedback] = useState('')
+  const [isLaunching, setIsLaunching] = useState(false)
 
   async function handleSubmit() {
-    await onLaunch({
-      preset_key: selectedPreset,
-      display_name: displayName || undefined,
-      epochs,
-      seed,
-      config: configOverride ?? undefined,
-    })
-    setDisplayName('')
+    if (!selectedPreset || isLaunching) return
+    setIsLaunching(true)
+    setFeedback('')
+    try {
+      await onLaunch({
+        preset_key: selectedPreset,
+        display_name: displayName || undefined,
+        epochs,
+        seed,
+        config: configOverride ?? undefined,
+      })
+      setDisplayName('')
+      setFeedback('Experiment queued successfully.')
+    } catch (error) {
+      setFeedback(error instanceof Error ? error.message : 'Unable to launch experiment.')
+    } finally {
+      setIsLaunching(false)
+    }
   }
 
-  function handleFileUpload(event: React.ChangeEvent<HTMLInputElement>) {
+  async function handleFileUpload(event: React.ChangeEvent<HTMLInputElement>) {
     const file = event.target.files?.[0]
     if (!file) return
-    file.text().then((text) => {
-      try {
-        const parsed = JSON.parse(text) as Record<string, unknown>
-        setConfigOverride(parsed)
-        if (typeof parsed.preset_key === 'string') {
-          setSelectedPreset(parsed.preset_key)
-        }
-      } catch {
-        setConfigOverride(null)
+
+    try {
+      const text = await new Promise<string>((resolve, reject) => {
+        const reader = new FileReader()
+        reader.onload = () => resolve(String(reader.result ?? ''))
+        reader.onerror = () => reject(reader.error ?? new Error('Unable to read config file.'))
+        reader.readAsText(file)
+      })
+      const parsed = JSON.parse(text) as Record<string, unknown>
+      setConfigOverride(parsed)
+      setFeedback(`Loaded config: ${file.name}`)
+      if (typeof parsed.preset_key === 'string') {
+        setSelectedPreset(parsed.preset_key)
       }
-    })
+    } catch {
+      setConfigOverride(null)
+      setFeedback('Config file is not valid JSON.')
+    }
   }
 
   const preset = presets.find((item) => item.key === selectedPreset)
@@ -95,8 +114,9 @@ export function RunLauncher({ presets, onLaunch }: RunLauncherProps) {
         <p className="preset-title">{preset?.display_name}</p>
         <p>{preset?.description}</p>
       </div>
-      <button className="primary-button" onClick={handleSubmit}>
-        Launch experiment
+      {feedback ? <p role="status">{feedback}</p> : null}
+      <button className="primary-button" onClick={handleSubmit} disabled={!selectedPreset || isLaunching}>
+        {isLaunching ? 'Queueing...' : 'Launch experiment'}
       </button>
     </section>
   )

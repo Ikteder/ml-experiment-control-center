@@ -1,160 +1,180 @@
 # ML Experiment Control Center
 
-![Control Center Banner](docs/graphics/control_center_banner.png)
+![ML Experiment Control Center dashboard](docs/graphics/dashboard_overview.png)
 
-![FastAPI](https://img.shields.io/badge/FastAPI-Backend-0F4C81?style=for-the-badge&logo=fastapi&logoColor=white)
-![React](https://img.shields.io/badge/React-TypeScript%20Frontend-2A9D8F?style=for-the-badge&logo=react&logoColor=white)
-![SQLite](https://img.shields.io/badge/SQLite-Run%20Metadata-F4A261?style=for-the-badge&logo=sqlite&logoColor=white)
-![Docker](https://img.shields.io/badge/Docker-Ready-264653?style=for-the-badge&logo=docker&logoColor=white)
-![Testing](https://img.shields.io/badge/Tests-pytest%20%2B%20RTL-E76F51?style=for-the-badge)
+[![CI](https://github.com/Ikteder/ml-experiment-control-center/actions/workflows/ci.yml/badge.svg)](https://github.com/Ikteder/ml-experiment-control-center/actions/workflows/ci.yml)
+![FastAPI](https://img.shields.io/badge/FastAPI-Backend-0F4C81?style=flat-square&logo=fastapi&logoColor=white)
+![React](https://img.shields.io/badge/React-TypeScript-2A9D8F?style=flat-square&logo=react&logoColor=white)
+![SQLite](https://img.shields.io/badge/SQLite-Metadata-F4A261?style=flat-square&logo=sqlite&logoColor=white)
+![License](https://img.shields.io/badge/License-MIT-264653?style=flat-square)
 
-This project is a lightweight internal ML platform built for launching experiments, tracking run metadata, streaming logs, comparing results, browsing artifacts, and exporting run summaries. It is designed to feel closer to real product engineering than a notebook-only machine learning project.
+An evidence-first local ML platform for launching experiments, tracking reproducibility metadata, streaming structured logs, comparing results, inspecting artifacts, and exporting reports. It demonstrates the product and engineering work around a model, not only the training code.
 
-## Why this project is strong
+## Why it stands out
 
-- It combines backend APIs, frontend product design, persistence, reproducibility, artifact handling, and testing.
-- It treats ML runs like first-class software objects with run IDs, config versioning, structured logs, seeds, and summary pages.
-- It supports multiple built-in workloads so the platform feels like a real internal tool instead of a one-off dashboard.
+- End-to-end product: FastAPI, React, TypeScript, SQLite, background execution, live logs, and generated artifacts.
+- Reproducible runs: immutable run IDs, seeds, config versions, source revisions, and saved configs.
+- Evaluation discipline: stratified classification holdouts, chronological forecasting holdouts, leakage-safe lag features, and a seasonal-naive forecast baseline.
+- Reviewable evidence: prediction files, metric histories, confusion matrices, forecast plots, dataset cards, model cards, and HTML reports.
+- Safer engineering: isolated tests and demo data, strict config validation, startup recovery, constrained CORS, non-root containers, health checks, and CI.
 
-## What the app does
+## Evaluation evidence
 
-- Launch experiments from a preset or uploaded JSON config
-- Persist run metadata and metric histories in SQLite
-- Stream structured logs live through server-sent events
-- Compare experiments side-by-side
-- Visualize loss, accuracy, F1, AUROC, MAE, RMSE, and R2
-- Browse artifacts such as confusion matrices, metric plots, predictions, configs, and model cards
-- Export HTML run summaries
+The bundled workloads use deterministic synthetic fixtures so anyone can reproduce the application workflow without downloading private or licensed data. These numbers validate the pipeline, not real-world model readiness.
 
-## Demo outputs
+![Classification metrics and demand forecast baseline comparison](docs/graphics/demo_run_comparison.png)
 
-### Demo run comparison
-![Demo Run Comparison](docs/graphics/demo_run_comparison.png)
+| Workload | Evaluation | Result |
+| --- | --- | --- |
+| Customer Churn Baseline | Seeded stratified holdout | F1 `0.755`, precision `0.857`, recall `0.675`, AUROC `0.935` |
+| Predictive Maintenance Classifier | Seeded stratified holdout | F1 `0.586`, precision `0.851`, recall `0.447`, AUROC `0.914` |
+| Demand Forecasting Regressor | Final chronological block | RMSE `22.03` vs seasonal-naive `22.92`, a `3.9%` improvement |
 
-### Artifact gallery
-![Artifact Gallery](docs/graphics/artifact_gallery.png)
+The predictive-maintenance result exposes a useful failure mode: high precision and low recall. The platform preserves both values and the confusion matrix instead of hiding that tradeoff behind accuracy.
+
+## Generated artifacts
+
+![Metric curves, confusion matrix, and chronological forecast artifacts](docs/graphics/artifact_gallery.png)
+
+Every completed run records:
+
+- `config.json` with the resolved reproducibility settings
+- `metrics_history.csv` and `predictions.csv`
+- Task-specific plots such as a confusion matrix or chronological forecast
+- `dataset_card.md` covering source, construction, split, and limitations
+- `model_card.md` covering intended use, evaluation, risks, and scorecard
+- An exportable `report.html`
+
+## Product workflow
+
+```mermaid
+flowchart LR
+    A["Compose a run"] --> B["Validate config"]
+    B --> C["Queue local worker"]
+    C --> D["Train and evaluate"]
+    D --> E["Persist metrics and logs"]
+    D --> F["Generate evidence artifacts"]
+    E --> G["React review dashboard"]
+    F --> G
+    G --> H["Compare or export"]
+```
 
 ## Built-in workloads
 
-| Workload | Task type | Purpose |
+| Workload | Task | Evaluation design |
 | --- | --- | --- |
-| Customer Churn Baseline | Classification | Business-friendly retention modeling workload |
-| Predictive Maintenance Classifier | Classification | Sensor-style failure risk tracking |
-| Demand Forecasting Regressor | Regression | Forecasting-style workload with seasonality and pricing effects |
-
-## Demo scorecard snapshot
-
-| Run | Status | Key metrics |
-| --- | --- | --- |
-| Customer Churn Baseline | Completed | Accuracy `0.860`, F1 `0.755`, AUROC `0.935` |
-| Predictive Maintenance Classifier | Completed | Accuracy `0.844`, F1 `0.586`, AUROC `0.914` |
-| Demand Forecasting Regressor | Completed | RMSE `82.542`, MAE `64.690`, R2 `0.610` |
+| Customer Churn Baseline | Binary classification | Seeded, stratified random holdout |
+| Predictive Maintenance Classifier | Binary classification | Seeded, stratified random holdout |
+| Demand Forecasting Regressor | Daily regression | Chronological final-block holdout with lag-1, lag-7, shifted rolling mean, and seasonal-naive baseline |
 
 ## Architecture
 
 ```mermaid
 flowchart LR
-    A["React dashboard"] --> B["FastAPI API"]
-    B --> C["SQLite metadata store"]
-    B --> D["Background experiment runner"]
-    D --> E["Metrics history"]
-    D --> F["Structured logs"]
-    D --> G["Artifacts and reports"]
-    C --> B
-    E --> A
-    F --> A
-    G --> A
+    UI["React + TypeScript"] --> API["FastAPI"]
+    API --> DB[("SQLite metadata")]
+    API --> WORKER["In-process worker pool"]
+    WORKER --> METRICS["Metric history"]
+    WORKER --> LOGS["JSONL event logs"]
+    WORKER --> FILES["Versioned artifacts"]
+    METRICS --> UI
+    LOGS --> UI
+    FILES --> UI
 ```
 
-## Engineering details included
+## Run it locally
 
-- Config versioning and seed tracking
-- Unique run IDs and git commit hash capture
-- Structured JSONL logging
-- Pagination and filtering on run lists
-- Side-by-side experiment comparison
-- REST API docs via FastAPI OpenAPI
-- Artifact browser and exportable HTML reports
-- Unit tests for run registration and API behavior
-- Frontend test coverage for experiment table interaction
-- Docker-based local startup
+Prerequisites: Python 3.12 or 3.13 and Node 20.19+ or 22.12+.
 
-## Project structure
-
-| Path | Purpose |
-| --- | --- |
-| `backend/app/` | FastAPI app, database models, API routes, and run orchestration |
-| `backend/tests/` | Backend API tests with `pytest` |
-| `frontend/src/` | React dashboard, charts, log stream, filters, and artifact browser |
-| `storage/runs/` | Generated artifacts and logs for each run |
-| `scripts/seed_demo_runs.py` | Generates demo runs for screenshots and local exploration |
-| `scripts/generate_readme_graphics.py` | Builds the README visuals from actual run output |
-| `docker-compose.yml` | Full local stack startup |
-
-## Local setup
-
-### 1. Backend
+### 1. Install the backend
 
 ```powershell
 py -3.13 -m venv .venv
-.venv\Scripts\python.exe -m pip install -r backend\requirements.txt
+.venv\Scripts\python.exe -m pip install -r backend\requirements-dev.txt
+```
+
+### 2. Create isolated demo runs
+
+```powershell
+.venv\Scripts\python.exe scripts\seed_demo_runs.py
+$env:MLECC_DATABASE_URL = "sqlite:///./.demo-runtime/app.db"
+$env:MLECC_STORAGE_ROOT = ".demo-runtime/storage"
 .venv\Scripts\python.exe -m uvicorn app.main:app --reload --app-dir backend
 ```
 
-Backend docs will be available at [http://127.0.0.1:8000/docs](http://127.0.0.1:8000/docs).
+The seed command resets only `.demo-runtime/`. It never touches the normal application database or `storage/runs`.
 
-### 2. Frontend
+API documentation: [http://127.0.0.1:8000/docs](http://127.0.0.1:8000/docs)
+
+### 3. Start the frontend
 
 ```powershell
 cd frontend
-npm install
+npm ci
 Copy-Item .env.example .env
 npm run dev
 ```
 
-Frontend will run at [http://127.0.0.1:5173](http://127.0.0.1:5173).
+Dashboard: [http://127.0.0.1:5173](http://127.0.0.1:5173)
 
-Use Node `20.19+` or `22.12+` to avoid Vite's engine warning.
-
-### 3. Seed demo runs
+## Docker
 
 ```powershell
-.venv\Scripts\python.exe scripts\seed_demo_runs.py
-```
-
-## Docker setup
-
-```powershell
+$env:MLECC_SOURCE_REVISION = git rev-parse --short HEAD
 docker compose up --build
 ```
 
-## API overview
+The stack includes backend and frontend health checks. The backend container runs as a non-root user and records the supplied source revision on new runs.
+
+## API
 
 | Endpoint | Purpose |
 | --- | --- |
 | `GET /api/v1/presets` | List built-in workloads and default configs |
-| `POST /api/v1/runs` | Launch a new experiment |
-| `GET /api/v1/runs` | Paginated run list with filters |
-| `GET /api/v1/runs/{run_id}` | Run summary, config, and artifacts |
+| `POST /api/v1/runs` | Validate and launch an experiment |
+| `GET /api/v1/runs` | Paginated, searchable, filterable run list |
+| `GET /api/v1/runs/{run_id}` | Run metadata, scorecard, config, and artifacts |
 | `GET /api/v1/runs/{run_id}/metrics` | Metric history for charts |
-| `GET /api/v1/runs/{run_id}/logs` | Live log stream via SSE |
-| `GET /api/v1/runs/{run_id}/artifacts/{artifact_name}` | Download or inspect artifacts |
-| `GET /api/v1/runs/{run_id}/report` | Exportable HTML summary |
+| `GET /api/v1/runs/{run_id}/logs` | Structured logs through server-sent events |
+| `GET /api/v1/runs/{run_id}/artifacts/{artifact_name}` | Inspect or download an artifact |
+| `GET /api/v1/runs/{run_id}/report` | Export an HTML run summary |
 
-## Testing
-
-### Backend
+## Verification
 
 ```powershell
 cd backend
-..\.venv\Scripts\python.exe -m pytest
-```
+..\.venv\Scripts\python.exe -m pytest -q
 
-### Frontend
-
-```powershell
-cd frontend
-npm test
+cd ..\frontend
+npm run lint
+npm test -- --run
 npm run build
 ```
 
+CI runs the backend suite on Python 3.12 and 3.13, and the frontend checks on Node 20 and 22.
+
+## Repository map
+
+| Path | Purpose |
+| --- | --- |
+| `backend/app/` | API, persistence, schemas, presets, and run orchestration |
+| `backend/tests/` | Isolated API and forecasting tests |
+| `frontend/src/` | Dashboard, charts, launch controls, filters, logs, and artifacts |
+| `docs/datasets/` | Dataset provenance and limitations |
+| `docs/experiments/` | Verification records and measured results |
+| `docs/models/` | Evaluation summary and intended-use notes |
+| `docs/decisions/` | Engineering and modeling tradeoffs |
+| `scripts/` | Safe demo seeding and evidence-graphic generation |
+
+## Honest limitations
+
+- All bundled datasets are synthetic software fixtures. No result should be interpreted as production model performance.
+- The worker pool is intentionally local and in-process. It is not a distributed queue and does not resume partially trained models after a crash.
+- SQLite and local files suit a portfolio demo or single-user tool, not a multi-tenant production deployment.
+- There is no authentication, role-based access control, remote object store, or hosted deployment in this version.
+
+See the [dataset documentation](docs/datasets/synthetic-workloads.md), [model evaluation summary](docs/models/evaluation-summary.md), and [technical decision record](docs/decisions/2026-09-10-chronological-forecasting.md) for the evidence behind these claims.
+
+## License
+
+[MIT](LICENSE)

@@ -42,18 +42,18 @@ select {
 
 .hero-shell {
   display: grid;
-  grid-template-columns: 2fr 1fr;
+  grid-template-columns: 1.7fr 1fr;
   gap: 24px;
   align-items: stretch;
   margin-bottom: 24px;
 }
 
 .hero-shell h1 {
-  font-size: clamp(2.6rem, 5vw, 4.8rem);
+  font-size: clamp(2.6rem, 4.2vw, 4.2rem);
   line-height: 0.97;
   margin: 10px 0 16px;
   letter-spacing: -0.04em;
-  max-width: 12ch;
+  max-width: 17ch;
 }
 
 .hero-copy {
@@ -71,6 +71,33 @@ select {
 .hero-callout h3 {
   margin: 18px 0 8px;
   font-size: 1.45rem;
+}
+
+.hero-metrics {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+  margin: 18px 0;
+}
+
+.hero-metrics div {
+  border-radius: 16px;
+  padding: 12px;
+  background: rgba(8, 14, 24, 0.5);
+}
+
+.hero-metrics span {
+  display: block;
+  color: #89c2d9;
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.hero-metrics strong {
+  display: block;
+  margin-top: 6px;
+  font-size: 1.2rem;
 }
 
 .eyebrow {
